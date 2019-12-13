@@ -1,3 +1,6 @@
+import pickle
+import os
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -69,7 +72,7 @@ def load_EMNIST_data(file, verbose = False, standarized = False):
     return X_train, y_train, X_test, y_test, writer_ids_train, writer_ids_test
 
 
-def load_CIFAR_data(data_type="CIFAR10", label_mode=None,
+def load_CIFAR_data(data_type="CIFAR10", label_mode="fine",
                     standarized = False, verbose = False):    
     if data_type == "CIFAR10":
         (X_train, y_train), (X_test, y_test) = cifar10.load_data()
@@ -77,6 +80,7 @@ def load_CIFAR_data(data_type="CIFAR10", label_mode=None,
         (X_train, y_train), (X_test, y_test) = cifar100.load_data(label_mode = label_mode)
     else:
         print("Unknown Data type. Stopped!")
+        return None
       
     
     y_train = np.squeeze(y_train)
@@ -98,6 +102,86 @@ def load_CIFAR_data(data_type="CIFAR10", label_mode=None,
         print("y_test shape :", y_test.shape)
     
     return X_train, y_train, X_test, y_test
+
+def load_CIFAR_from_local(local_dir, data_type="CIFAR10", with_coarse_label = False, 
+                          standarized = False, verbose = False):
+    #dir_name = os.path.abspath(local_dir)
+    if data_type == "CIFAR10":
+        X_train, y_train = [], [] 
+        for i in range(1, 6, 1):
+            file_name = None
+            file_name = os.path.join(local_dir + "data_batch_{0}".format(i))
+            X_tmp, y_tmp = None, None
+            with open(file_name, 'rb') as fo:
+                datadict = pickle.load(fo, encoding='bytes')
+            
+            X_tmp = datadict[b'data']
+            y_tmp = datadict[b'labels']
+            X_tmp = X_tmp.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("float")
+            y_tmp = np.array(y_tmp)
+            
+            X_train.append(X_tmp)
+            y_train.append(y_tmp)
+            del X_tmp, y_tmp
+        X_train = np.vstack(X_train)
+        y_train = np.hstack(y_train)
+        
+        file_name = None
+        file_name = os.path.join(local_dir + "test_batch")
+        with open(file_name, 'rb') as fo:
+            datadict = pickle.load(fo, encoding='bytes')
+            
+            X_test = datadict[b'data']
+            y_test = datadict[b'labels']
+            X_test = X_test.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("float")
+            y_test = np.array(y_test)
+            
+            
+    elif data_type == "CIFAR100":
+        file_name = None 
+        file_name = os.path.abspath(local_dir + "train")
+        with open(file_name, 'rb') as fo:
+            datadict = pickle.load(fo, encoding='bytes')
+            X_train = datadict[b'data']
+            if with_coarse_label:
+                y_train = datadict[b'coarse_labels']
+            else:
+                y_train = datadict[b'fine_labels']
+            X_train = X_train.reshape(50000, 3, 32, 32).transpose(0,2,3,1).astype("float")
+            y_train = np.array(y_train)
+        
+        file_name = None 
+        file_name = os.path.join(local_dir + "test")
+        with open(file_name, 'rb') as fo:
+            datadict = pickle.load(fo, encoding='bytes')
+            X_test = datadict[b'data']
+            if with_coarse_label:
+                y_test = datadict[b'coarse_labels']
+            else:
+                y_test = datadict[b'fine_labels']
+            X_test = X_test.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("float")
+            y_test = np.array(y_test)
+        
+    else:
+        print("Unknown Data type. Stopped!")
+        return None   
+    
+    if standarized: 
+        X_train = X_train/255
+        X_test = X_test/255
+        mean_image = np.mean(X_train, axis=0)
+        X_train -= mean_image
+        X_test -= mean_image
+    
+    if verbose == True: 
+        print("X_train shape :", X_train.shape)
+        print("X_test shape :", X_test.shape)
+        print("y_train shape :", y_train.shape)
+        print("y_test shape :", y_test.shape)
+        
+    return X_train, y_train, X_test, y_test
+
+
 
 
 def generate_partial_data(X, y, class_in_use = None, verbose = False):
@@ -216,3 +300,37 @@ def generate_EMNIST_writer_based_data(X, y, writer_info, N_priv_data_min = 30,
     total_priv_data["X"] = X[combined_idx]
     total_priv_data["y"] = y[combined_idx]
     return private_data, total_priv_data
+
+
+def generate_imbal_CIFAR_private_data(X, y, y_super, classes_per_party, N_parties,
+                                      samples_per_class=7):
+
+    priv_data = [None] * N_parties
+    combined_idxs = []
+    count = 0
+    for subcls_list in classes_per_party:
+        idxs_per_party = []
+        for c in subcls_list:
+            idxs = np.flatnonzero(y == c)
+            idxs = np.random.choice(idxs, samples_per_class, replace=False)
+            idxs_per_party.append(idxs)
+        idxs_per_party = np.hstack(idxs_per_party)
+        combined_idxs.append(idxs_per_party)
+        
+        dict_to_add = {}
+        dict_to_add["idx"] = idxs_per_party
+        dict_to_add["X"] = X[idxs_per_party]
+        #dict_to_add["y"] = y[idxs_per_party]
+        #dict_to_add["y_super"] = y_super[idxs_per_party]
+        dict_to_add["y"] = y_super[idxs_per_party]
+        priv_data[count] = dict_to_add
+        count += 1
+    
+    combined_idxs = np.hstack(combined_idxs)
+    total_priv_data = {}
+    total_priv_data["idx"] = combined_idxs
+    total_priv_data["X"] = X[combined_idxs]
+    #total_priv_data["y"] = y[combined_idxs]
+    #total_priv_data["y_super"] = y_super[combined_idxs]
+    total_priv_data["y"] = y_super[combined_idxs]
+    return priv_data, total_priv_data

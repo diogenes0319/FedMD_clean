@@ -117,7 +117,7 @@ def train_models(models, X_train, y_train, X_test, y_test,
         if early_stopping:
             model.fit(X_train, y_train, 
                       validation_data = [X_test, y_test],
-                      callbacks=[EarlyStopping(monitor='val_acc', min_delta=min_delta, patience=patience)],
+                      callbacks=[EarlyStopping(monitor='val_accuracy', min_delta=min_delta, patience=patience)],
                       batch_size = batch_size, epochs = epochs, shuffle=is_shuffle, verbose = verbose
                      )
         else:
@@ -126,9 +126,9 @@ def train_models(models, X_train, y_train, X_test, y_test,
                       batch_size = batch_size, epochs = epochs, shuffle=is_shuffle, verbose = verbose
                      )
         
-        resulting_val_acc.append(model.history.history["val_acc"][-1])
-        record_result.append({"train_acc": model.history.history["acc"], 
-                              "val_acc": model.history.history["val_acc"],
+        resulting_val_acc.append(model.history.history["val_accuracy"][-1])
+        record_result.append({"train_acc": model.history.history["accuracy"], 
+                              "val_acc": model.history.history["val_accuracy"],
                               "train_loss": model.history.history["loss"], 
                               "val_loss": model.history.history["val_loss"]})
         
