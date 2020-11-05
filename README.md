@@ -18,5 +18,5 @@ Preprint on https://arxiv.org/abs/1910.03581.
 
 4. Run the python script in Colab. For instance 
 ``` 
-! python pretrain_CNN_on_public_dataset.py -conf conf/pretrain_MNIST_conf.json
+! python FEMNIST_Balanced.py -conf conf/EMNIST_balance_conf.json
 ```
