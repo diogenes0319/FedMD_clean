@@ -116,13 +116,13 @@ def train_models(models, X_train, y_train, X_test, y_test,
         print("Training model ", n)
         if early_stopping:
             model.fit(X_train, y_train, 
-                      validation_data = [X_test, y_test],
+                      validation_data = (X_test, y_test),
                       callbacks=[EarlyStopping(monitor='val_acc', min_delta=min_delta, patience=patience)],
                       batch_size = batch_size, epochs = epochs, shuffle=is_shuffle, verbose = verbose
                      )
         else:
             model.fit(X_train, y_train, 
-                      validation_data = [X_test, y_test],
+                      validation_data = (X_test, y_test),
                       batch_size = batch_size, epochs = epochs, shuffle=is_shuffle, verbose = verbose
                      )
         
